@@ -7,6 +7,8 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+  department?: string;
+  location?: string;
 }
 
 export interface Contract {

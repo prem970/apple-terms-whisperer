@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, TrendingUp, FileText, AlertTriangle, Clock } from "lucide-react";
+import { Plus, TrendingUp, FileText, AlertTriangle, Clock, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { ContractCard } from "@/components/contracts/ContractCard";
 import { ChatModal } from "@/components/contracts/ChatModal";
 import { UploadModal } from "@/components/contracts/UploadModal";
+import { ContractDetailsModal } from "@/components/contracts/ContractDetailsModal";
 import { useContractStore } from "@/store/contractStore";
 import { useAuthStore } from "@/store/authStore";
 import { Contract } from "@/types";
@@ -22,17 +23,34 @@ export default function Dashboard() {
   const [chatContract, setChatContract] = useState<Contract | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-  // Filter contracts based on user role
+  // Filter contracts based on user role and search query
   const filteredContracts = contracts.filter(contract => {
-    if (user?.role === 'distributor_head') return true;
+    // First apply role-based filtering
+    let roleMatch = false;
+    if (user?.role === 'distributor_head') roleMatch = true;
     if (user?.role === 'store_incharge') {
-      return contract.documentType !== 'commission';
+      roleMatch = contract.documentType !== 'commission';
     }
     if (user?.role === 'salesperson') {
-      return contract.documentType === 'service';
+      roleMatch = contract.documentType === 'service';
     }
-    return false;
+    
+    // Then apply search filtering
+    if (searchQuery && roleMatch) {
+      const query = searchQuery.toLowerCase();
+      return (
+        contract.fileName.toLowerCase().includes(query) ||
+        contract.brand.toLowerCase().includes(query) ||
+        contract.series.toLowerCase().includes(query) ||
+        contract.model.toLowerCase().includes(query) ||
+        contract.documentType.toLowerCase().includes(query)
+      );
+    }
+    
+    return roleMatch && !searchQuery;
   });
 
   // Stats calculation
@@ -45,6 +63,14 @@ export default function Dashboard() {
 
   const handleContractSelect = (contract: Contract) => {
     setSelectedContract(contract);
+    setIsDetailsOpen(true);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (query && activeTab === 'alerts') {
+      setActiveTab('all');
+    }
   };
 
   const handleChat = (contract: Contract) => {
@@ -60,7 +86,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+      <Navbar onSearch={handleSearch} />
       
       <div className="container mx-auto p-6">
         {/* Header */}
@@ -182,22 +208,37 @@ export default function Dashboard() {
           </TabsList>
 
           <TabsContent value="all" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredContracts.map((contract, index) => (
-                <motion.div
-                  key={contract.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <ContractCard
-                    contract={contract}
-                    onSelect={handleContractSelect}
-                    onChat={handleChat}
-                  />
-                </motion.div>
-              ))}
-            </div>
+            {filteredContracts.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredContracts.map((contract, index) => (
+                  <motion.div
+                    key={contract.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <ContractCard
+                      contract={contract}
+                      onSelect={handleContractSelect}
+                      onChat={handleChat}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <Card className="p-12 text-center">
+                <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  {searchQuery ? 'No contracts found' : 'No contracts available'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery 
+                    ? `No contracts match your search "${searchQuery}"`
+                    : 'Upload your first contract to get started'
+                  }
+                </p>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="active" className="space-y-4">
@@ -305,6 +346,14 @@ export default function Dashboard() {
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
+      />
+      <ContractDetailsModal
+        contract={selectedContract}
+        isOpen={isDetailsOpen}
+        onClose={() => {
+          setIsDetailsOpen(false);
+          setSelectedContract(null);
+        }}
       />
     </div>
   );
