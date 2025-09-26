@@ -1,0 +1,311 @@
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Plus, TrendingUp, FileText, AlertTriangle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Navbar } from "@/components/layout/Navbar";
+import { ContractCard } from "@/components/contracts/ContractCard";
+import { ChatModal } from "@/components/contracts/ChatModal";
+import { UploadModal } from "@/components/contracts/UploadModal";
+import { useContractStore } from "@/store/contractStore";
+import { useAuthStore } from "@/store/authStore";
+import { Contract } from "@/types";
+import { format } from "date-fns";
+
+export default function Dashboard() {
+  const { user } = useAuthStore();
+  const { contracts, alerts, markAlertAsRead } = useContractStore();
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [chatContract, setChatContract] = useState<Contract | null>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("all");
+
+  // Filter contracts based on user role
+  const filteredContracts = contracts.filter(contract => {
+    if (user?.role === 'distributor_head') return true;
+    if (user?.role === 'store_incharge') {
+      return contract.documentType !== 'commission';
+    }
+    if (user?.role === 'salesperson') {
+      return contract.documentType === 'service';
+    }
+    return false;
+  });
+
+  // Stats calculation
+  const stats = {
+    total: filteredContracts.length,
+    active: filteredContracts.filter(c => c.status === 'active').length,
+    expiring: filteredContracts.filter(c => c.status === 'expiring').length,
+    expired: filteredContracts.filter(c => c.status === 'expired').length,
+  };
+
+  const handleContractSelect = (contract: Contract) => {
+    setSelectedContract(contract);
+  };
+
+  const handleChat = (contract: Contract) => {
+    setChatContract(contract);
+  };
+
+  useEffect(() => {
+    // Check for hash navigation to alerts
+    if (window.location.hash === '#alerts') {
+      setActiveTab('alerts');
+    }
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      
+      <div className="container mx-auto p-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              Contract Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Welcome back, {user?.name}
+            </p>
+          </div>
+          <Button 
+            onClick={() => setIsUploadOpen(true)}
+            className="bg-gradient-primary shadow-glow"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Upload Contract
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="bg-gradient-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Contracts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold">{stats.total}</span>
+                  <FileText className="h-5 w-5 text-primary/50" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="bg-gradient-card border-success/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Active
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold text-success">{stats.active}</span>
+                  <TrendingUp className="h-5 w-5 text-success/50" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="bg-gradient-card border-warning/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Expiring Soon
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold text-warning">{stats.expiring}</span>
+                  <Clock className="h-5 w-5 text-warning/50" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <Card className="bg-gradient-card border-destructive/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Expired
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold text-destructive">{stats.expired}</span>
+                  <AlertTriangle className="h-5 w-5 text-destructive/50" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Main Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full md:w-auto grid-cols-4 md:inline-grid">
+            <TabsTrigger value="all">All Contracts</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="expiring">Expiring</TabsTrigger>
+            <TabsTrigger value="alerts">
+              Alerts
+              {alerts.filter(a => !a.isRead).length > 0 && (
+                <Badge className="ml-2 h-4 px-1 text-xs" variant="destructive">
+                  {alerts.filter(a => !a.isRead).length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredContracts.map((contract, index) => (
+                <motion.div
+                  key={contract.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <ContractCard
+                    contract={contract}
+                    onSelect={handleContractSelect}
+                    onChat={handleChat}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="active" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredContracts
+                .filter(c => c.status === 'active')
+                .map((contract, index) => (
+                  <motion.div
+                    key={contract.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <ContractCard
+                      contract={contract}
+                      onSelect={handleContractSelect}
+                      onChat={handleChat}
+                    />
+                  </motion.div>
+                ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="expiring" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredContracts
+                .filter(c => c.status === 'expiring')
+                .map((contract, index) => (
+                  <motion.div
+                    key={contract.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <ContractCard
+                      contract={contract}
+                      onSelect={handleContractSelect}
+                      onChat={handleChat}
+                    />
+                  </motion.div>
+                ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="alerts" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Alerts</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[400px]">
+                  <div className="space-y-3">
+                    {alerts.map((alert, index) => (
+                      <motion.div
+                        key={alert.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className={`p-4 rounded-lg border ${
+                          alert.isRead ? 'bg-muted/30' : 'bg-card'
+                        } hover:shadow-md transition-all cursor-pointer`}
+                        onClick={() => markAlertAsRead(alert.id)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge
+                                variant={
+                                  alert.severity === 'high' ? 'destructive' :
+                                  alert.severity === 'medium' ? 'default' : 'secondary'
+                                }
+                                className="text-xs"
+                              >
+                                {alert.type}
+                              </Badge>
+                              {!alert.isRead && (
+                                <Badge className="text-xs bg-primary">New</Badge>
+                              )}
+                            </div>
+                            <h4 className="font-semibold text-sm">{alert.title}</h4>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {alert.description}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {format(alert.date, 'MMM dd, yyyy • HH:mm')}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Modals */}
+      <ChatModal
+        contract={chatContract}
+        isOpen={!!chatContract}
+        onClose={() => setChatContract(null)}
+      />
+      <UploadModal
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+      />
+    </div>
+  );
+}
