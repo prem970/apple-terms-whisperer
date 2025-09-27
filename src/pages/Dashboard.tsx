@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, TrendingUp, FileText, AlertTriangle, Clock, Search } from "lucide-react";
+import { Plus, TrendingUp, FileText, AlertTriangle, Clock, Search, GitCompare, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Navbar } from "@/components/layout/Navbar";
 import { ContractCard } from "@/components/contracts/ContractCard";
 import { ChatModal } from "@/components/contracts/ChatModal";
 import { UploadModal } from "@/components/contracts/UploadModal";
 import { ContractDetailsModal } from "@/components/contracts/ContractDetailsModal";
+import { ContractComparison } from "@/components/contracts/ContractComparison";
+import { ContractClustering } from "@/components/contracts/ContractClustering";
 import { useContractStore } from "@/store/contractStore";
 import { useAuthStore } from "@/store/authStore";
 import { Contract } from "@/types";
@@ -18,39 +21,45 @@ import { format } from "date-fns";
 
 export default function Dashboard() {
   const { user } = useAuthStore();
-  const { contracts, alerts, markAlertAsRead } = useContractStore();
+  const { 
+    contracts, 
+    alerts, 
+    brands,
+    series,
+    selectedContracts,
+    toggleContractSelection,
+    markAlertAsRead,
+    fetchContracts,
+    fetchAlerts,
+    fetchBrands,
+    fetchSeries 
+  } = useContractStore();
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [chatContract, setChatContract] = useState<Contract | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [comparisonModalOpen, setComparisonModalOpen] = useState(false);
+  const [clusteringModalOpen, setClusteringModalOpen] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
 
-  // Filter contracts based on user role and search query
+  // Fetch data on mount
+  useEffect(() => {
+    fetchContracts();
+    fetchAlerts();
+    fetchBrands();
+    fetchSeries();
+  }, []);
+
+  // Filter contracts based on search query
   const filteredContracts = contracts.filter(contract => {
-    // First apply role-based filtering
-    let roleMatch = false;
-    if (user?.role === 'distributor_head') roleMatch = true;
-    if (user?.role === 'store_incharge') {
-      roleMatch = contract.documentType !== 'commission';
-    }
-    if (user?.role === 'salesperson') {
-      roleMatch = contract.documentType === 'service';
-    }
+    const matchesSearch = searchQuery === '' || 
+      contract.file_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contract.model?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contract.version.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Then apply search filtering
-    if (searchQuery && roleMatch) {
-      const query = searchQuery.toLowerCase();
-      return (
-        contract.fileName.toLowerCase().includes(query) ||
-        contract.brand.toLowerCase().includes(query) ||
-        contract.series.toLowerCase().includes(query) ||
-        contract.model.toLowerCase().includes(query) ||
-        contract.documentType.toLowerCase().includes(query)
-      );
-    }
-    
-    return roleMatch && !searchQuery;
+    return matchesSearch;
   });
 
   // Stats calculation
@@ -199,9 +208,9 @@ export default function Dashboard() {
             <TabsTrigger value="expiring">Expiring</TabsTrigger>
             <TabsTrigger value="alerts">
               Alerts
-              {alerts.filter(a => !a.isRead).length > 0 && (
+              {alerts.filter(a => !a.is_read).length > 0 && (
                 <Badge className="ml-2 h-4 px-1 text-xs" variant="destructive">
-                  {alerts.filter(a => !a.isRead).length}
+                  {alerts.filter(a => !a.is_read).length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -298,7 +307,7 @@ export default function Dashboard() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.05 }}
                         className={`p-4 rounded-lg border ${
-                          alert.isRead ? 'bg-muted/30' : 'bg-card'
+                          alert.is_read ? 'bg-muted/30' : 'bg-card'
                         } hover:shadow-md transition-all cursor-pointer`}
                         onClick={() => markAlertAsRead(alert.id)}
                       >
@@ -314,7 +323,7 @@ export default function Dashboard() {
                               >
                                 {alert.type}
                               </Badge>
-                              {!alert.isRead && (
+                              {!alert.is_read && (
                                 <Badge className="text-xs bg-primary">New</Badge>
                               )}
                             </div>
@@ -323,7 +332,7 @@ export default function Dashboard() {
                               {alert.description}
                             </p>
                             <p className="text-xs text-muted-foreground mt-2">
-                              {format(alert.date, 'MMM dd, yyyy • HH:mm')}
+                              {format(new Date(alert.created_at), 'MMM dd, yyyy • HH:mm')}
                             </p>
                           </div>
                         </div>
@@ -354,6 +363,14 @@ export default function Dashboard() {
           setIsDetailsOpen(false);
           setSelectedContract(null);
         }}
+      />
+      <ContractComparison
+        isOpen={comparisonModalOpen}
+        onClose={() => setComparisonModalOpen(false)}
+      />
+      <ContractClustering
+        isOpen={clusteringModalOpen}
+        onClose={() => setClusteringModalOpen(false)}
       />
     </div>
   );
