@@ -29,7 +29,7 @@ export function Navbar({ onSearch }: NavbarProps) {
   const { user, logout } = useAuthStore();
   const { alerts, contracts, markAlertAsRead } = useContractStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const unreadAlerts = alerts.filter(a => !a.isRead).length;
+  const unreadAlerts = alerts.filter(a => !a.is_read).length;
   const expiringContracts = contracts.filter(c => c.status === 'expiring');
 
   const handleLogout = () => {
@@ -109,7 +109,7 @@ export function Navbar({ onSearch }: NavbarProps) {
                           alert.severity === 'medium' ? 'text-warning' : 'text-muted-foreground'
                         }`} />
                         <span className="font-medium text-sm flex-1">{alert.title}</span>
-                        {!alert.isRead && (
+                        {!alert.is_read && (
                           <Badge className="text-xs bg-primary">New</Badge>
                         )}
                       </div>
@@ -117,7 +117,7 @@ export function Navbar({ onSearch }: NavbarProps) {
                         {alert.description}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {format(alert.date, 'MMM dd, HH:mm')}
+                        {format(new Date(alert.created_at), 'MMM dd, HH:mm')}
                       </p>
                     </DropdownMenuItem>
                   ))
@@ -152,9 +152,9 @@ export function Navbar({ onSearch }: NavbarProps) {
                     >
                       <Calendar className="h-3 w-3 text-warning" />
                       <div className="flex-1">
-                        <p className="text-xs font-medium">{contract.fileName}</p>
+                        <p className="text-xs font-medium">{contract.file_name}</p>
                         <p className="text-xs text-muted-foreground">
-                          Expires: {format(contract.expiryDate, 'MMM dd, yyyy')}
+                          Expires: {format(new Date(contract.expiry_date), 'MMM dd, yyyy')}
                         </p>
                       </div>
                     </DropdownMenuItem>

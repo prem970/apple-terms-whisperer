@@ -34,6 +34,37 @@ export default function Dashboard() {
     fetchBrands,
     fetchSeries 
   } = useContractStore();
+  
+  // Map database contracts to component Contract type
+  const mapContractToUI = (dbContract: any): Contract => {
+    const brand = brands.find(b => b.id === dbContract.brand_id);
+    const seriesItem = series.find(s => s.id === dbContract.series_id);
+    
+    return {
+      id: dbContract.id,
+      fileName: dbContract.file_name,
+      brand: brand?.name || 'Unknown',
+      series: seriesItem?.name || 'Unknown',
+      model: dbContract.model || 'Standard',
+      version: dbContract.version,
+      uploadDate: new Date(dbContract.upload_date || dbContract.created_at),
+      expiryDate: new Date(dbContract.expiry_date),
+      status: dbContract.status,
+      uploadedBy: dbContract.uploaded_by || 'System',
+      fileSize: dbContract.file_size || '0 MB',
+      documentType: dbContract.document_type,
+      keyTerms: {
+        margin: dbContract.margin,
+        paymentTerms: dbContract.payment_terms,
+        slaTime: dbContract.sla_time,
+        territory: dbContract.territory,
+        exclusivity: dbContract.exclusivity,
+        minimumOrderQuantity: dbContract.minimum_order_quantity,
+        warrantyPeriod: dbContract.warranty_period,
+      },
+      riskLevel: dbContract.risk_level || 'medium',
+    };
+  };
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [chatContract, setChatContract] = useState<Contract | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -52,10 +83,11 @@ export default function Dashboard() {
     fetchSeries();
   }, []);
 
-  // Filter contracts based on search query
-  const filteredContracts = contracts.filter(contract => {
+  // Map and filter contracts based on search query
+  const uiContracts = contracts.map(mapContractToUI);
+  const filteredContracts = uiContracts.filter(contract => {
     const matchesSearch = searchQuery === '' || 
-      contract.file_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contract.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       contract.model?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       contract.version.toLowerCase().includes(searchQuery.toLowerCase());
     

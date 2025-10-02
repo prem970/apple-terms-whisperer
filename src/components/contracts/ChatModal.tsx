@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Contract, ChatMessage } from "@/types";
-import { useContractStore } from "@/store/contractStore";
 
 interface ChatModalProps {
   contract: Contract | null;
@@ -23,8 +22,8 @@ interface ChatModalProps {
 export function ChatModal({ contract, isOpen, onClose }: ChatModalProps) {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { chatMessages, addChatMessage } = useContractStore();
   
   const contractMessages = chatMessages.filter(msg => msg.contractId === contract?.id);
 
@@ -45,7 +44,7 @@ export function ChatModal({ contract, isOpen, onClose }: ChatModalProps) {
       contractId: contract.id,
     };
 
-    addChatMessage(userMessage);
+    setChatMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsTyping(true);
 
@@ -60,7 +59,7 @@ export function ChatModal({ contract, isOpen, onClose }: ChatModalProps) {
         contractId: contract.id,
         highlightedClause: aiResponse.clause,
       };
-      addChatMessage(aiMessage);
+      setChatMessages(prev => [...prev, aiMessage]);
       setIsTyping(false);
     }, 1500);
   };
